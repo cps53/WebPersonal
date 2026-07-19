@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validació Punt de Control</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #f4f7f6; padding: 40px 20px; color: #333; }
+        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); max-width: 400px; margin: 0 auto; }
+        h1 { color: #0088cc; font-size: 24px; }
+        p { font-size: 16px; line-height: 1.5; color: #666; }
+        .btn { display: inline-block; padding: 15px 30px; font-size: 18px; color: white; background-color: #0088cc; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; margin-top: 20px; box-shadow: 0 4px 10px rgba(0,136,204,0.3); transition: all 0.2s; }
+        .btn:active { transform: scale(0.98); }
+        .status { margin-top: 20px; font-weight: bold; color: #ff9900; }
+        .note { font-size: 12px; color: #999; margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>📍 Validació per Bluetooth</h1>
+    <p>Estàs a prop del punt de control? Prem el botó per sincronitzar el teu mòbil amb la balisa física.</p>
+    
+    <button class="btn" onclick="connectaBluetooth()">Sincronitzar Posició</button>
+    
+    <div id="status" class="status"></div>
+
+    <div class="note">
+        <strong>⚠️ Nota:</strong> Si no funciona, assegura't que tens el Bluetooth actiu i que estàs obrint aquesta pàgina des de <strong>Safari (iPhone)</strong> o <strong>Chrome (Android)</strong>, no des del navegador intern de Telegram.
+    </div>
+</div>
+
+<script>
+// El nom del teu bot de Telegram (sense l'arrova)
+const BOT_USERNAME = "provabandolersbot"; 
+
+// Els mateixos UUIDs que hem posat a l'ESP32
+const SERVICE_UUID        = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+
+async function connectaBluetooth() {
+    const statusDiv = document.getElementById('status');
+    statusDiv.innerText = "Buscant el Punt de Control...";
+    statusDiv.style.color = "#ff9900";
+
+    try {
+        // 1. Demanem permís per buscar el dispositiu BLE específic
+        const device = await navigator.bluetooth.requestDevice({
+            filters: [{ name: 'PUNT_CONTROL_1' }],
+            optionalServices: [SERVICE_UUID]
+        });
+
+        statusDiv.innerText = "Connectant...";
+        
+        // 2. Ens connectem al servidor GATT de l'ESP32
+        const server = await device.gatt.connect();
+        
+        // 3. Busquem el servei
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        
+        // 4. Busquem la característica on està el codi secret
+        const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+        
+        statusDiv.innerText = "Llegint codi secret...";
+        
+        // 5. Llegim el valor (ens retornarà un DataView)
+        const value = await characteristic.readValue();
+        
+        // 6. Convertim els bytes a text (String)
+        const decoder = new TextDecoder('utf-8');
+        const codiSecret = decoder.decode(value);
+
+        statusDiv.innerText = "Validat! Redirigint a Telegram...";
+        statusDiv.style.color = "#00cc66";
+
+        // 7. Desconnectem el bluetooth netament
+        device.gatt.disconnect();
+
+        // 8. Enviem l'usuari de tornada a Telegram amb el codi mitjançant Deep Linking
+        setTimeout(() => {
+            window.location.href = `https://t.me/${BOT_USERNAME}?start=${codiSecret}`;
+        }, 1500);
+
+    } catch (error) {
+        console.error(error);
+        statusDiv.innerText = "Error o connexió cancel·lada.";
+        statusDiv.style.color = "#cc0000";
+    }
+}
+</script>
+
+</body>
+</html>
