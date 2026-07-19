@@ -83,7 +83,8 @@ async function connectaBluetooth() {
 
     } catch (error) {
         console.error(error);
-        statusDiv.innerText = "Error o connexió cancel·lada.";
+        // statusDiv.innerText = "Error o connexió cancel·lada.";
+        statusDiv.innerText = "Error: " + error.message; 
         statusDiv.style.color = "#cc0000";
     }
 }
